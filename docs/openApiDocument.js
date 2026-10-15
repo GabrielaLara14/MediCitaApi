@@ -1,16 +1,13 @@
-// Arma el documento OpenAPI (la descripción de la API que Swagger convierte en la página interactiva).
 const { API_BASE_PATH, APPOINTMENT_STATUS, EXAM_TYPES, HTTP_STATUS } = require('../env/constants');
 const { responses, schemas, securitySchemes } = require('./components');
 const { ACCESS, buildCrudPaths, buildReportPath, buildSessionPath } = require('./crudPaths');
 
 const { NOT_FOUND, CONFLICT, FORBIDDEN } = HTTP_STATUS;
 
-// Tipos de parámetros de consulta que se repiten: id, fecha (AAAA-MM-DD) y mes (AAAA-MM).
 const idQuery = { type: 'integer', minimum: 1 };
 const dateQuery = { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' };
 const monthQuery = { type: 'string', pattern: '^\\d{4}-(0[1-9]|1[0-2])$' };
 
-// Encabezado de caché que se documenta en el listado de médicos.
 const catalogCacheHeaders = {
   'Cache-Control': {
     description: 'Cache privada del catalogo de medicos',
@@ -18,7 +15,6 @@ const catalogCacheHeaders = {
   },
 };
 
-// Endpoints de reportes: cada uno se convierte en una ruta GET documentada.
 const reports = [
   {
     tag: 'Reports',
@@ -43,9 +39,6 @@ const reports = [
   },
 ];
 
-// Recursos CRUD. Por cada uno se generan las rutas de listar, crear, consultar, actualizar y eliminar.
-// access: quién puede usar cada operación (si no se indica, cualquier usuario autenticado).
-// extraErrors: errores adicionales que se documentan además de los comunes.
 const resources = [
   {
     tag: 'Admins',
@@ -53,11 +46,9 @@ const resources = [
     label: 'administrador',
     pluralLabel: 'administradores',
     schemaName: 'Admin',
-    // Las cinco operaciones requieren rol administrador.
     access: Object.fromEntries(
       ['list', 'create', 'get', 'update', 'remove'].map((operation) => [operation, ACCESS.ADMIN]),
     ),
-    // 409: correo duplicado al crear o actualizar.
     extraErrors: { create: [CONFLICT], update: [CONFLICT] },
   },
   {
@@ -67,13 +58,11 @@ const resources = [
     schemaName: 'Patient',
     access: {
       list: ACCESS.ADMIN,
-      // El registro de pacientes es público (no requiere token).
       create: ACCESS.PUBLIC,
       get: ACCESS.SELF_OR_ADMIN,
       update: ACCESS.SELF_OR_ADMIN,
       remove: ACCESS.SELF_OR_ADMIN,
     },
-    // 409: correo duplicado, o paciente con citas al eliminarlo.
     extraErrors: { create: [CONFLICT], update: [CONFLICT], remove: [CONFLICT] },
   },
   {
@@ -81,9 +70,7 @@ const resources = [
     path: '/doctors',
     label: 'médico',
     schemaName: 'Doctor',
-    // Listar y consultar son para cualquier usuario autenticado; el resto, solo admin.
     access: { create: ACCESS.ADMIN, update: ACCESS.ADMIN, remove: ACCESS.ADMIN },
-    // 409: médico con citas al eliminarlo.
     extraErrors: { remove: [CONFLICT] },
     listParameters: [
       { name: 'specialty', schema: { type: 'string' }, example: 'Cardiología' },
@@ -96,7 +83,6 @@ const resources = [
     path: '/appointments',
     label: 'cita',
     schemaName: 'Appointment',
-    // 404: paciente o médico inexistente; 409: horario ocupado o cita ya no modificable; 403: cita de otro paciente.
     extraErrors: {
       create: [NOT_FOUND, CONFLICT, FORBIDDEN],
       get: [FORBIDDEN],
@@ -119,9 +105,7 @@ const resources = [
     path: '/exams',
     label: 'examen',
     schemaName: 'Exam',
-    // Listar y consultar para cualquier usuario autenticado; crear, editar y borrar, solo admin.
     access: { create: ACCESS.ADMIN, update: ACCESS.ADMIN, remove: ACCESS.ADMIN },
-    // 403: examen de otro paciente.
     extraErrors: { get: [FORBIDDEN] },
     listParameters: [
       { name: 'patientId', schema: idQuery, example: 1 },
@@ -137,7 +121,6 @@ const resources = [
     path: '/reviews',
     label: 'reseña',
     schemaName: 'Review',
-    // 404: cita inexistente; 409: cita no completada o ya reseñada; 403: cita de otro paciente.
     extraErrors: {
       create: [NOT_FOUND, CONFLICT, FORBIDDEN],
       get: [FORBIDDEN],
@@ -151,7 +134,6 @@ const resources = [
   },
 ];
 
-// Documento final que lee Swagger UI.
 module.exports = {
   openapi: '3.0.3',
   info: {
@@ -161,11 +143,8 @@ module.exports = {
       'API REST de la plataforma de citas medicas MediCita. Para probar los endpoints protegidos, ' +
       'crea una sesion en POST /sessions y pega el token en el boton Authorize.',
   },
-  // Prefijo común de todas las rutas.
   servers: [{ url: API_BASE_PATH }],
-  // Orden de los grupos en la página: sesiones, cada recurso y reportes.
   tags: [{ name: 'Sessions' }, ...resources.map(({ tag }) => ({ name: tag })), { name: 'Reports' }],
-  // Une en un solo objeto las rutas de sesión, de cada recurso y de los reportes.
   paths: Object.assign(buildSessionPath(), ...resources.map(buildCrudPaths), ...reports.map(buildReportPath)),
   components: { schemas, responses, securitySchemes },
 };

@@ -1,4 +1,3 @@
-// Controlador de reportes: pide al servicio generar el reporte con los filtros recibidos.
 class ReportController {
   constructor(service) {
     this.service = service;
